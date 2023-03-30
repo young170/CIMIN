@@ -21,9 +21,24 @@ void handle_signal(int sig) {
     }
 }
 
+
+char * minimize_input(char * input, char * substring) {
+	int length = strlen(input);
+}
+
+char * delta_debug(char * input, char * condition) {
+	char * reduced_input = new char[strlen(input)];
+	int length = strlen(reduced_input) - 1;
+
+	while (length > 0) {
+
+	}
+}
+
 int main(int argc, char *argv[]) {
     int pid;
     int status;
+	int opt;
     struct itimerval timer;
 
     // signal
@@ -36,13 +51,34 @@ int main(int argc, char *argv[]) {
 
     signal(SIGALRM, handle_signal);
 
-    // options
-    	// i : input
-    char * test_input;
-		// c : condition
-	char * condition;
-		// ./a.out : target program
-	char * target_program = argv[1];
+	// input
+	char crashFile[16];
+	char errorString[16];
+	char reducedFile[16];
+	char execFile[16];
+
+	if (argc != 8){
+			fprintf(stderr, "too many arguments..\n");
+			exit(1);
+	}
+
+	while ((opt = getopt(argc,argv,"i:m:o:")) != -1) {
+		switch (opt) {
+		case 'i':
+			memcpy(crashFile, optarg, 16);
+			break;
+		case 'm':
+			memcpy(errorString, optarg, 16);
+			break;
+		case 'o' :
+			memcpy(reducedFile, optarg, 16);
+			break;
+		case '?' :
+			fprintf(stderr, "option doesn't exist..\n");
+			exit(1);
+		}
+	}
+	memcpy(execFile, argv[7], 16);
 
     pid = fork();
     if (pid < 0) {
@@ -50,7 +86,7 @@ int main(int argc, char *argv[]) {
         exit(1);
     } else if (pid == 0) {
         // child process executes binary file
-        execl(target_program, target_program, NULL);
+        execl(execFile, execFile, NULL);
         fprintf(stderr, "child process failed..\n");
         exit(1);
     } else {
