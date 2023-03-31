@@ -65,8 +65,13 @@ char * delta_debug(char * input, char * condition) {
 int main(int argc, char *argv[]) {
     int pid;
     int status;
-	int opt;
+
     struct itimerval timer;
+
+	int iflag = 0;
+	int mflag = 0;
+	int oflag = 0;
+	int opt;
 
     // signal
     timer.it_value.tv_sec = EXEC_TIME;
@@ -79,33 +84,39 @@ int main(int argc, char *argv[]) {
     signal(SIGALRM, handle_signal);
 
 	// input
-	char crashFile[16];
-	char errorString[16];
-	char reducedFile[16];
-	char execFile[16];
+	char crash_file[16];
+	char error_string[16];
+	char reduced_file[16];
+	char exec_file[16];
 
 	if (argc != 8){
-			fprintf(stderr, "too many arguments..\n");
+			fprintf(stderr, "wrong number of arguments..\n");
 			exit(1);
 	}
 
-	while ((opt = getopt(argc,argv,"i:m:o:")) != -1) {
+	while ((opt = getopt(argc, argv, "imo:")) != -1) {
 		switch (opt) {
-		case 'i':
-			memcpy(crashFile, optarg, 16);
-			break;
-		case 'm':
-			memcpy(errorString, optarg, 16);
-			break;
-		case 'o' :
-			memcpy(reducedFile, optarg, 16);
-			break;
-		case '?' :
-			fprintf(stderr, "option doesn't exist..\n");
-			exit(1);
+			case 'i':	// -i : input file path
+				iflag = 1;
+				memcpy(crash_file, optarg, 16);
+				break;
+			case 'm':	// -m : keyword message
+				mflag = 1;
+				memcpy(error_string, optarg, 16);
+				break;
+			case 'o' :	// -o : output file path
+				oflag = 1;
+				memcpy(reduced_file, optarg, 16);
+				break;
+			case '?' :	// exception
+				if (isprint (optopt))
+          			fprintf (stderr, "Unknown option '-%c'.\n", optopt);
+        		else
+          			fprintf (stderr, "Unknown option character '\\x%x'.\n", optopt);
+				return 1;
 		}
 	}
-	memcpy(execFile, argv[7], 16);
+	memcpy(exec_file, argv[7], 16);		// ./a.out : target program
 
     pid = fork();
     if (pid < 0) {
@@ -113,7 +124,7 @@ int main(int argc, char *argv[]) {
         exit(1);
     } else if (pid == 0) {
         // child process executes binary file
-        execl(execFile, execFile, NULL);
+        execl(exec_file, exec_file, NULL);
         fprintf(stderr, "child process failed..\n");
         exit(1);
     } else {

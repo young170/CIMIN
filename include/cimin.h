@@ -10,5 +10,5 @@
 
 void end_program();
 void handle_signal(int sig);
-char * minimize_input(char * input);
-char * delta_debug(char * input);
+char * minimize_input(char * input, char * condition);
+char * delta_debug(char * input, char * condition);
