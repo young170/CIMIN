@@ -21,18 +21,45 @@ void handle_signal(int sig) {
     }
 }
 
+char * minimize_input(char * input, char * condition) {
+	char * test_input = input;
+	int input_length = strlen(test_input);
+	int sub_length = input_length - 1;
 
-char * minimize_input(char * input, char * substring) {
-	int length = strlen(input);
+	while (sub_length > 0) {
+		for (int i = 0; i < input_length - sub_length - 1) {
+			char * head, tail;
+
+			strncpy(head, test_input, i);
+			int offset = i + sub_length + 1;
+			strncpy(tail, test_input + offset, input_length - 1);
+
+			char * output;
+			// char * output = program_exec(strcat(head, tail));
+			if (strcmp(output, condition) == 0) {
+				return minimize_input(strcat(head, tail));
+			}
+		}
+
+		for (int i = 0; i < input_length - sub_length - 1) {
+			char * mid;
+			strncpy(mid, test_input + i, i + sub_length);
+
+			char * output;
+			// char * output = program_exec(mid);
+			if (strcmp(output, condition) == 0) {
+				return minimize_input(mid);
+			}
+		}
+
+		sub_length = sub_length - 1;
+	}
+
+	return test_input;
 }
 
 char * delta_debug(char * input, char * condition) {
-	char * reduced_input = new char[strlen(input)];
-	int length = strlen(reduced_input) - 1;
-
-	while (length > 0) {
-
-	}
+	return minimize_input(input, condition);
 }
 
 int main(int argc, char *argv[]) {
