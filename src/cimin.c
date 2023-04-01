@@ -73,6 +73,9 @@ int main(int argc, char *argv[]) {
 	int oflag = 0;
 	int opt;
 
+	//pipe file descriptor, 0 for reading, 1 for writing
+	int pipeFD[2]; 
+
     // signal
     timer.it_value.tv_sec = EXEC_TIME;
 	timer.it_value.tv_usec = 0;
@@ -118,6 +121,12 @@ int main(int argc, char *argv[]) {
 	}
 	memcpy(exec_file, argv[7], 16);		// ./a.out : target program
 
+	//create pipe
+	if(pipe(pipeFD)!=0){
+		perror("Pipe Error");
+		exit(1);
+	}
+
     pid = fork();
     if (pid < 0) {
         fprintf(stderr, "fork failed..\n");
@@ -129,6 +138,8 @@ int main(int argc, char *argv[]) {
         exit(1);
     } else {
         // parent process waits for child to finish
+			
+			
         waitpid(pid, &status, 0);
 
         timer.it_value.tv_sec = 0;
