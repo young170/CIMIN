@@ -127,7 +127,7 @@ int main(int argc, char *argv[]) {
 	int opt;
 
 	//pipe file descriptor, 0 for reading, 1 for writing
-	int pipeFD[2]; 
+	int pipeFD[2];
 
     // signal
     timer.it_value.tv_sec = EXEC_TIME;
@@ -140,40 +140,56 @@ int main(int argc, char *argv[]) {
     signal(SIGALRM, handle_signal);
 
 	// input
-	char crash_file[16];
-	char error_string[16];
-	char reduced_file[16];
-	char exec_file[16];
+	char * crash_file;
+	char * error_string;
+	char * reduced_file;
+	char * exec_file;
+	char * target_options[];
 
-	if (argc != 8){
-			fprintf(stderr, "wrong number of arguments..\n");
-			exit(1);
+	if (argc <= 7) {
+		fprintf(stderr, "Input options count..\n");
+		return 1;
 	}
 
-	while ((opt = getopt(argc, argv, "imo:")) != -1) {
+	while ((opt = getopt(7, argv, "i:m:o:")) != -1) {
 		switch (opt) {
 			case 'i':	// -i : input file path
+				crash_file = (char *) malloc(sizeof(char) * strlen(optarg));
+				strcpy(crash_file, optarg);
+
 				iflag = 1;
-				memcpy(crash_file, optarg, 16);
 				break;
 			case 'm':	// -m : keyword message
+				error_string = (char *) malloc(sizeof(char) * strlen(optarg));
+				strcpy(error_string, optarg);
+
 				mflag = 1;
-				memcpy(error_string, optarg, 16);
 				break;
 			case 'o' :	// -o : output file path
+				reduced_file = (char *) malloc(sizeof(char) * strlen(optarg));
+				strcpy(reduced_file, optarg);
+
 				oflag = 1;
-				memcpy(reduced_file, optarg, 16);
 				break;
 			case '?' :	// exception
-				if (isprint (optopt))
-          			fprintf (stderr, "Unknown option '-%c'.\n", optopt);
+				if (isprint(optopt))
+          			fprintf(stderr, "Unknown option '-%c'.\n", optopt);
         		else
-          			fprintf (stderr, "Unknown option character '\\x%x'.\n", optopt);
+          			fprintf(stderr, "Unknown option character '\\x%x'.\n", optopt);
 				return 1;
-		}
+			default:
+				fprintf(stderr, "Error option");
+            	return 1;
 	}
-	memcpy(exec_file, argv[7], 16);	// ./a.out : target program
 
+	int length_of_target_arg = argc - optind;
+	target_options = (char *) malloc(sizeof(char) * ((length_of_target_arg)));
+
+	for (int i = 0; i < length_of_target_arg; i++) {
+		target_options[i] = (char *) malloc(sizeof(char) * strlen(argv[optind + i]));
+		strcpy(target_options[i], argv[optind + i]);
+	}
+	
 	//create pipe
 	if(pipe(pipeFD)!=0){
 		perror("Pipe Error");
