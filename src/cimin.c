@@ -24,7 +24,7 @@ void handle_signal(int sig) {
     }
 }
 
-char * minimize_input(char * input, char * condition) {
+char * minimize_input(char ** input, char * condition) {
 	char * test_input = input;				// variable input
 	int input_length = strlen(test_input);	// length of input
 	int sub_length = input_length - 1;		// length of substring of input
@@ -108,8 +108,44 @@ char * minimize_input(char * input, char * condition) {
 	return test_input;
 }
 
-char * delta_debug(char * input, char * condition) {
+char * delta_debug(char ** input, char * condition) {
 	return minimize_input(input, condition);
+}
+
+char ** file_data(char * filepath) {
+	FILE *fp;
+	char ** buffer;
+	long file_length;
+
+	// Open file
+	fp = fopen(filepath) "r"); // use file path specified by -i option
+
+	// Check if file exists
+	if (fp == NULL) {
+		printf("Error opening file\n");
+		return NULL;
+	}
+
+	// length of the file
+	fseek(fp, 0L, SEEK_END);
+    file_length = ftell(fp);
+    rewind(fp);
+
+	buffer = (char **) malloc(sizeof(char *) * file_length);
+    for (int i = 0; i < file_size; i++) {
+        buffer[i] = (char *) malloc(sizeof(char) * 256);
+    }
+
+	// read contents
+	int i = 0;
+    while (fgets(buffer[i], 256, fp)) {
+        i++;
+    }
+
+	fclose(fp);
+
+	// remember to free
+	return buffer;
 }
 
 int main(int argc, char *argv[]) {
@@ -189,6 +225,9 @@ int main(int argc, char *argv[]) {
 		target_options[i] = (char *) malloc(sizeof(char) * strlen(argv[optind + i]));
 		strcpy(target_options[i], argv[optind + i]);
 	}
+
+	char ** crash_data = file_data(crash_file);	// read contents from crash input filepath
+	char * outut_result = delta_debug(crash_data, error_string);
 	
 	//create pipe
 	if(pipe(pipeFD)!=0){
