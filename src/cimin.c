@@ -18,21 +18,20 @@ void handle_signal(int sig) {
 	}
 	// if interrupt signal, clean up & end program
 	else if (sig == SIGINT) {
-        fprintf(stderr, "Program quitting due to interrupt..\n");
+        fprintf(stderr, "\nProgram quitting due to interrupt..\n");
         end_program();
         exit(1);
     }
 }
 
 char * program_exec(char ** input, char * exec_file, char ** target_options) {
-
 	// pipe file descriptor, 0 for reading, 1 for writing
 	int to_child_FD[2];
 	int to_parent_FD[2];
+
 	pid_t child_pid;
 	int status;
 	
-	// parent process waits for child to finish
 	// set timer
 	struct itimerval timer;
     timer.it_value.tv_sec = EXEC_TIME;	// 3 sec
@@ -55,7 +54,6 @@ char * program_exec(char ** input, char * exec_file, char ** target_options) {
 		exit(1);
 	}
 
-
 	child_pid = fork();
 	if (child_pid < 0) {
 		fprintf(stderr, "fork failed..\n");
@@ -74,7 +72,7 @@ char * program_exec(char ** input, char * exec_file, char ** target_options) {
 		// child process executes binary file
 		// output of stderr will be redirected to to_parent_FD[1]
 		// - by the dup2(to_parent_FD[1], STDERR_FILENO)
-		if (execl(exec_file, target_options[0], NULL) == -1) {
+		if (execv(exec_file, target_options) == -1) {
 			fprintf(stderr, "child process failed..\n");
 			exit(1);
 		}
@@ -83,27 +81,23 @@ char * program_exec(char ** input, char * exec_file, char ** target_options) {
 	// parent process 
 	close(to_child_FD[0]);	// close read
 	close(to_parent_FD[1]);	// close write
-    
-	char buf[BUFSIZ];
 
+	// write to pipe_to_child - stdin
 	int j = 0;
     while (input[j] != NULL) {
         write(to_child_FD[1], input[j], strlen(input[j]));
         j++;
     }
 
-	// write(to_child_FD[1], input, strlen(input));
+	// need to close write pipe - or else it constantly waits for input
 	close(to_child_FD[1]);
 
 	waitpid(child_pid, &status, 0);
-	
-	// if (WIFEXITED(status)) {	// if target program terminated with no error
-	// 	buf[] = "ok";
-	// 	return buf;
-    // }
 
+	char buf[BUFSIZ];
 	// recieve the output of child via stderr using unnamed pipe
 	read(to_parent_FD[0], buf, BUFSIZ);
+	printf("%s\n", buf);	// intentional - print stderr to console
 	close(to_parent_FD[0]);
 
 	return buf;
@@ -158,7 +152,7 @@ char ** file_data(char * filepath) {
 
     fp = fopen(filepath, "r"); // use file path specified by -i option
 
-    // Check if file exists
+    // check if file exists
     if (fp == NULL) {
         fprintf(stderr, "Error opening file..\n");
 
@@ -207,9 +201,10 @@ char ** file_data(char * filepath) {
         strcpy(buffer[i], line); // copy line to buffer
         i++;
     }
-
     fclose(fp);
-    if (line) free(line); // free memory allocated by getline()
+
+    if (line)
+		free(line); // free memory allocated by getline()
 
 	buffer[i - 1][strlen(buffer[i - 1]) - 1] = '\0';
 
@@ -222,13 +217,12 @@ int main(int argc, char *argv[]) {
 	int iflag = 0;
 	int mflag = 0;
 	int oflag = 0;
-
 	int opt;
-    	// input
+
+    // input
 	char * crash_file;
 	char * error_string;
 	char * reduced_file;
-	char * exec_file;
 	char ** target_options;
 
 	if (argc <= 7) {
@@ -266,6 +260,7 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
+	// length of options following the target binary exec file
 	int length_of_target_arg = argc - optind;
 	target_options = (char **) malloc(sizeof(char) * (length_of_target_arg+1));
 
@@ -275,9 +270,29 @@ int main(int argc, char *argv[]) {
 	}
 	target_options[length_of_target_arg] = NULL; // end of argument when running execv
 
+	// main process
 	char ** crash_data = file_data(crash_file);	// read contents from crash input filepath
 	char* output_exec = program_exec(crash_data, target_options[0], target_options);
 	// char * output_result = delta_debug(crash_data, error_string, exec_file, target_options);
+
+
+
+	// free char*
+	free(crash_file);
+	free(error_string);
+	free(reduced_file);
+
+	// free char**
+	for (int i = 0; i < sizeof(target_options) / sizeof(char *); i++) {
+		free(target_options[i]);
+	}
+	free(target_options);
+
+	// free char**
+	for (int i = 0; i < sizeof(crash_data) / sizeof(char *); i++) {
+		free(crash_data[i]);
+	}
+	free(crash_data);
 
     return 0;
 }
