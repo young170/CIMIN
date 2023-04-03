@@ -24,7 +24,7 @@ void handle_signal(int sig) {
     }
 }
 
-char * program_exec(char * input, char * exec_file, char ** target_options) {
+char * program_exec(char ** input, char * exec_file, char ** target_options) {
 
 	// pipe file descriptor, 0 for reading, 1 for writing
 	int to_child_FD[2];
@@ -39,10 +39,11 @@ char * program_exec(char * input, char * exec_file, char ** target_options) {
 	timer.it_value.tv_usec = 0;
     timer.it_interval.tv_sec = 0;
     timer.it_interval.tv_usec = 0;
+	setitimer(ITIMER_REAL, &timer, NULL);
 
 	// signal
     signal(SIGALRM, handle_signal);
-	setitimer(ITIMER_REAL, &timer, NULL);
+	signal(SIGINT, handle_signal);
 
 	// initialize int arrays as pipe
 	if (pipe(to_child_FD) != 0) {	// non-zero == error
@@ -84,17 +85,22 @@ char * program_exec(char * input, char * exec_file, char ** target_options) {
 	close(to_parent_FD[1]);	// close write
     
 	char buf[BUFSIZ];
-	ssize_t num_bytes_read;
 
-	write(to_child_FD[1], input, sizeof(input));
+	int j = 0;
+    while (input[j] != NULL) {
+        write(to_child_FD[1], input[j], strlen(input[j]));
+        j++;
+    }
+
+	// write(to_child_FD[1], input, strlen(input));
 	close(to_child_FD[1]);
 
 	waitpid(child_pid, &status, 0);
 	
-	if (WIFEXITED(status)) {	// if target program terminated with no error
-		buf[] = "ok";
-		return buf;
-    }
+	// if (WIFEXITED(status)) {	// if target program terminated with no error
+	// 	buf[] = "ok";
+	// 	return buf;
+    // }
 
 	// recieve the output of child via stderr using unnamed pipe
 	read(to_parent_FD[0], buf, BUFSIZ);
@@ -104,47 +110,47 @@ char * program_exec(char * input, char * exec_file, char ** target_options) {
 	return buf;
 }
 
-char ** minimize_input(char ** input, char * condition, char * exec_file, char * target_options[]) {
-	char ** test_input = input;				// variable input
-	int input_length = strlen(test_input);	// length of input
-	int sub_length = input_length - 1;		// length of substring of input
+// char ** minimize_input(char ** input, char * condition, char * exec_file, char * target_options[]) {
+// 	char ** test_input = input;				// variable input
+// 	int input_length = strlen(test_input);	// length of input
+// 	int sub_length = input_length - 1;		// length of substring of input
 
-	while (sub_length > 0) {
-		for (int i = 0; i < input_length - sub_length; i++) { 
-			char * head, tail;
+// 	while (sub_length > 0) {
+// 		for (int i = 0; i < input_length - sub_length; i++) { 
+// 			char * head, tail;
 
-			strncpy(head, test_input, i);	// [0..i-1]
-			int offset = i + sub_length;	// [i+s..
-			strncpy(tail, test_input + offset, input_length);	// ..|t|-1]
+// 			strncpy(head, test_input, i);	// [0..i-1]
+// 			int offset = i + sub_length;	// [i+s..
+// 			strncpy(tail, test_input + offset, input_length);	// ..|t|-1]
 
-			char * output = program_exec(strcat(head, tail), condition, exec_file, target_option);
+// 			char * output = program_exec(strcat(head, tail), condition, exec_file, target_option);
 
-			// if the output of stderr contains the error keyword condition
-			if (strstr(output, condition) != NULL) {
-				return minimize_input(strcat(head, tail));
-			}
-		}
+// 			// if the output of stderr contains the error keyword condition
+// 			if (strstr(output, condition) != NULL) {
+// 				return minimize_input(strcat(head, tail));
+// 			}
+// 		}
 
-		for (int i = 0; i < input_length - sub_length - 1) {
-			char * mid;
-			strncpy(mid, test_input + i, i + sub_length);	// [i..i+s-1]
+// 		for (int i = 0; i < input_length - sub_length - 1) {
+// 			char * mid;
+// 			strncpy(mid, test_input + i, i + sub_length);	// [i..i+s-1]
 
-			char * output = program_exec(mid, condition, exec_file, target_option);
-			if (strstr(output, condition) != NULL) {
-				return minimize_input(mid);
-			}
-		}
+// 			char * output = program_exec(mid, condition, exec_file, target_option);
+// 			if (strstr(output, condition) != NULL) {
+// 				return minimize_input(mid);
+// 			}
+// 		}
 
-		// decrement substring by 1
-		sub_length = sub_length - 1;
-	}
+// 		// decrement substring by 1
+// 		sub_length = sub_length - 1;
+// 	}
 	
-	return test_input;
-}
+// 	return test_input;
+// }
 
-char ** delta_debug(char ** input, char * condition, char * exec_file, char ** target_options) {
-	return minimize_input(input, condition, exec_file, target_options);
-}
+// char ** delta_debug(char ** input, char * condition, char * exec_file, char ** target_options) {
+// 	return minimize_input(input, condition, exec_file, target_options);
+// }
 
 char ** file_data(char * filepath) {
     FILE *fp;
@@ -206,7 +212,8 @@ char ** file_data(char * filepath) {
     fclose(fp);
     if (line) free(line); // free memory allocated by getline()
 
-	buffer[strlen(buffer) - 1] = NULL;
+	buffer[i - 1][strlen(buffer[i - 1]) - 1] = '\0';
+
     return buffer;
 }
 
@@ -235,6 +242,7 @@ int main(int argc, char *argv[]) {
 			case 'i':	// -i : input file path
 				crash_file = (char *) malloc(sizeof(char) * strlen(optarg));
 				strcpy(crash_file, optarg);
+				crash_file[strlen(crash_file)] = '\0';
 
 				iflag = 1;
 				break;
@@ -269,7 +277,8 @@ int main(int argc, char *argv[]) {
 	target_options[length_of_target_arg] = NULL; // end of argument when running execv
 
 	char ** crash_data = file_data(crash_file);	// read contents from crash input filepath
-	char * output_result = delta_debug(crash_data, error_string, exec_file, target_options);
+	char* output_exec = program_exec(crash_data, target_options[0], target_options);
+	// char * output_result = delta_debug(crash_data, error_string, exec_file, target_options);
 
     return 0;
 }
