@@ -24,23 +24,12 @@ void handle_signal(int sig) {
     }
 }
 
-char program_exec(char * input, char * condition, char * exec_file, char ** target_options){
-
-	struct itimerval timer;
-	// signal
-    timer.it_value.tv_sec = EXEC_TIME;
-	timer.it_value.tv_usec = 0;
-    timer.it_interval.tv_sec = 0;
-    timer.it_interval.tv_usec = 0;
-
-    setitimer(ITIMER_REAL, &timer, NULL);
-
-    signal(SIGALRM, handle_signal);
+char * program_exec(char * input, char * exec_file, char * target_options[]){
 
 	//pipe file descriptor, 0 for reading, 1 for writing
 	int to_child_FD[2];
 	int to_parent_FD[2];
-	int pipe_fd[2];
+	int pid;
 	int status;
 	
 	//create pipe
@@ -54,18 +43,19 @@ char program_exec(char * input, char * condition, char * exec_file, char ** targ
 	}
 
 
-	int pid = fork();
+	pid = fork();
 	if (pid < 0) {
 		fprintf(stderr, "fork failed..\n");
 		exit(1);
 	} else if (pid == 0) {
-		// use pipe() to redirect stdin input
+		// use pipe() to redirect stdin input and stderr output
 		close(to_child_FD[1]);
 		close(to_parent_FD[0]);
 
         dup2(to_child_FD[0], STDIN_FILENO); 
 		dup2(to_parent_FD[1],STDERR_FILENO);
-
+		close(to_child_FD[0]);
+		close(to_parent_FD[1]);
 		// child process executes binary file
 		if (execv(exec_file, target_options) == -1) {
 			fprintf(stderr, "child process failed..\n");
@@ -78,28 +68,38 @@ char program_exec(char * input, char * condition, char * exec_file, char ** targ
 	close(to_parent_FD[1]);
         
 	char buf[BUFSIZ];
-	char * output;
 	ssize_t num_bytes_read;
 
-	write(to_child_FD[1], input, sizeof(input));
-
+	write(to_child_FD[1],input,sizeof(input));
+	close(to_child_FD[1]);
+	
+	// need time also as global var
 	// parent process waits for child to finish
-	waitpid(pid, &status, 0);	// need time also as global var
+
+	//set timer
+	struct itimerval timer;
+    timer.it_value.tv_sec = EXEC_TIME;
+	timer.it_value.tv_usec = 0;
+    timer.it_interval.tv_sec = 0;
+    timer.it_interval.tv_usec = 0;
+	// signal
+    signal(SIGALRM, handle_signal);
+
+
+    setitimer(ITIMER_REAL, &timer, NULL);	
+	waitpid(pid, &status, 0);
+
+	if (WIFEXITED(status)){// if target program terminated with no error.
+		buf[] = "ok";
+		return buf;
+    }
 	/////////////////////////////////////////////////////
 	//recieve the output of child via stderr using unnamed pipe
 	/////////////////////////////////////////////////////
-
-	while ((num_bytes_read = read(pipe_fd[0], buf, BUFSIZ)) > 0) {
-		// Output the received data
-		write(output, buf, num_bytes_read);
-	}
-	close(pipe_fd[0]);
-	/////////////////////////////////////////////////////
-
-	timer.it_value.tv_sec = 0;
-	setitimer(ITIMER_REAL, &timer, NULL);
-
-	return output;
+	
+	read(to_parent_FD[0], buf, BUFSIZ)		
+	close(to_parent_FD[0]);
+	return buf;
 }
 
 
@@ -218,8 +218,7 @@ int main(int argc, char *argv[]) {
 	int oflag = 0;
 
 	int opt;
-
-	// input
+    	// input
 	char * crash_file;
 	char * error_string;
 	char * reduced_file;
