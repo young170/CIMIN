@@ -13,8 +13,8 @@
 
 void end_program();
 void handle_signal(int sig);
-char * minimize_input(char ** input, char * condition);
-char * delta_debug(char ** input, char * condition);
+char * minimize_input(char ** input, char * condition, char * exec_file, char ** target_options);
+char * delta_debug(char ** input, char * condition, char * exec_file, char ** target_options);
 char ** file_data(char * filepath);
 
 #endif
