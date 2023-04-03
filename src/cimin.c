@@ -24,87 +24,87 @@ void handle_signal(int sig) {
     }
 }
 
-char * program_exec(char * input, char * exec_file, char * target_options[]){
+char * program_exec(char * input, char * exec_file, char ** target_options) {
 
-	//pipe file descriptor, 0 for reading, 1 for writing
+	// pipe file descriptor, 0 for reading, 1 for writing
 	int to_child_FD[2];
 	int to_parent_FD[2];
-	int pid;
+	pid_t child_pid;
 	int status;
 	
-	//create pipe
-	if (pipe(to_child_FD)!=0) {
+	// parent process waits for child to finish
+	// set timer
+	struct itimerval timer;
+    timer.it_value.tv_sec = EXEC_TIME;	// 3 sec
+	timer.it_value.tv_usec = 0;
+    timer.it_interval.tv_sec = 0;
+    timer.it_interval.tv_usec = 0;
+
+	// signal
+    signal(SIGALRM, handle_signal);
+	setitimer(ITIMER_REAL, &timer, NULL);
+
+	// initialize int arrays as pipe
+	if (pipe(to_child_FD) != 0) {	// non-zero == error
 		perror("Pipe Error");
 		exit(1);
 	}
-	if (pipe(to_parent_FD)!=0) {
+	if (pipe(to_parent_FD) != 0) {
 		perror("Pipe Error");
 		exit(1);
 	}
 
 
-	pid = fork();
-	if (pid < 0) {
+	child_pid = fork();
+	if (child_pid < 0) {
 		fprintf(stderr, "fork failed..\n");
 		exit(1);
-	} else if (pid == 0) {
+	} else if (child_pid == 0) {
 		// use pipe() to redirect stdin input and stderr output
-		close(to_child_FD[1]);
-		close(to_parent_FD[0]);
+		close(to_child_FD[1]);	// close write
+		close(to_parent_FD[0]);	// close read
 
-        dup2(to_child_FD[0], STDIN_FILENO); 
-		dup2(to_parent_FD[1],STDERR_FILENO);
-		close(to_child_FD[0]);
-		close(to_parent_FD[1]);
+		// dup2(source, target)
+		// replaces target to the sources
+		// ex) dup2(pipes[1], STDOUT_FILENO) - stdout is redirected to pipes[1]
+        dup2(to_child_FD[0], STDIN_FILENO);		// macro : 0
+		dup2(to_parent_FD[1], STDERR_FILENO);	// macro : 2
+
 		// child process executes binary file
-		if (execv(exec_file, target_options) == -1) {
+		// output of stderr will be redirected to to_parent_FD[1]
+		// - by the dup2(to_parent_FD[1], STDERR_FILENO)
+		if (execl(exec_file, target_options[0], NULL) == -1) {
 			fprintf(stderr, "child process failed..\n");
 			exit(1);
 		}
 	}
 
 	// parent process 
-	close(to_child_FD[0]);
-	close(to_parent_FD[1]);
-        
+	close(to_child_FD[0]);	// close read
+	close(to_parent_FD[1]);	// close write
+    
 	char buf[BUFSIZ];
 	ssize_t num_bytes_read;
 
-	write(to_child_FD[1],input,sizeof(input));
+	write(to_child_FD[1], input, sizeof(input));
 	close(to_child_FD[1]);
+
+	waitpid(child_pid, &status, 0);
 	
-	// need time also as global var
-	// parent process waits for child to finish
-
-	//set timer
-	struct itimerval timer;
-    timer.it_value.tv_sec = EXEC_TIME;
-	timer.it_value.tv_usec = 0;
-    timer.it_interval.tv_sec = 0;
-    timer.it_interval.tv_usec = 0;
-	// signal
-    signal(SIGALRM, handle_signal);
-
-
-    setitimer(ITIMER_REAL, &timer, NULL);	
-	waitpid(pid, &status, 0);
-
-	if (WIFEXITED(status)){// if target program terminated with no error.
+	if (WIFEXITED(status)) {	// if target program terminated with no error
 		buf[] = "ok";
 		return buf;
     }
-	/////////////////////////////////////////////////////
-	//recieve the output of child via stderr using unnamed pipe
-	/////////////////////////////////////////////////////
-	
-	read(to_parent_FD[0], buf, BUFSIZ)		
+
+	// recieve the output of child via stderr using unnamed pipe
+	read(to_parent_FD[0], buf, BUFSIZ);
+	printf("%s\n", buf);
 	close(to_parent_FD[0]);
+
 	return buf;
 }
 
-
-
-char * minimize_input(char ** input, char * condition, char * exec_file, char * target_options[]) {
+char ** minimize_input(char ** input, char * condition, char * exec_file, char * target_options[]) {
 	char ** test_input = input;				// variable input
 	int input_length = strlen(test_input);	// length of input
 	int sub_length = input_length - 1;		// length of substring of input
@@ -142,7 +142,7 @@ char * minimize_input(char ** input, char * condition, char * exec_file, char * 
 	return test_input;
 }
 
-char * delta_debug(char ** input, char * condition, char * exec_file, char ** target_options) {
+char ** delta_debug(char ** input, char * condition, char * exec_file, char ** target_options) {
 	return minimize_input(input, condition, exec_file, target_options);
 }
 
@@ -206,9 +206,9 @@ char ** file_data(char * filepath) {
     fclose(fp);
     if (line) free(line); // free memory allocated by getline()
 
+	buffer[strlen(buffer) - 1] = NULL;
     return buffer;
 }
-
 
 int main(int argc, char *argv[]) {
 	// flags of input options
