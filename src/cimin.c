@@ -24,7 +24,60 @@ void handle_signal(int sig) {
     }
 }
 
-char * minimize_input(char ** input, char * condition) {
+char program_exec(char * input, char * exec_file, char * target_options[]){
+	char * output;
+
+	//pipe file descriptor, 0 for reading, 1 for writing
+	int pipeFD[2];
+	
+	//create pipe
+	if(pipe(pipeFD)!=0){
+		perror("Pipe Error");
+		exit(1);
+	}
+
+
+	int pid = fork;
+	if (pid < 0) {
+		fprintf(stderr, "fork failed..\n");
+		exit(1);
+	} else if (pid == 0) {
+		// child process executes binary file
+		// use pipe() to redirect stdin input
+		close(fileFD[1]);
+        dup2(fd[0], STDIN_FILENO); 
+		if( execv(exec_file, target_options)==-1){
+			fprintf(stderr, "child process failed..\n");
+			exit(1);
+		}
+	} else {
+				// parent process waits for child to finish
+				waitpid(pid, &status, 0);	// need time also as global var
+
+				/////////////////////////////////////////////////////
+				recieve the output of child via stderr using unnamed pipe
+				/////////////////////////////////////////////////////
+				close(pipe_fd[1]);
+				char buf[BUFSIZ];
+				char * output;
+				ssize_t num_bytes_read;
+			}
+				while ((num_bytes_read = read(pipe_fd[0], buf, BUFSIZ)) > 0) {
+					// Output the received data
+					write(output, buf, num_bytes_read);
+				}
+				close(pipe_fd[0]);
+				/////////////////////////////////////////////////////
+
+				timer.it_value.tv_sec = 0;
+				setitimer(ITIMER_REAL, &timer, NULL);
+
+	return output;
+}
+
+
+
+char * minimize_input(char ** input, char * condition, char * exec_file, char * target_options[]) {
 	char * test_input = input;				// variable input
 	int input_length = strlen(test_input);	// length of input
 	int sub_length = input_length - 1;		// length of substring of input
@@ -51,38 +104,7 @@ char * minimize_input(char ** input, char * condition) {
 			/////////////////////////////////////////////////////
 			use fork() and execl() to get output
 			/////////////////////////////////////////////////////
-			int pid = fork;
-			if (pid < 0) {
-				fprintf(stderr, "fork failed..\n");
-				exit(1);
-			} else if (pid == 0) {
-				// child process executes binary file
-				// use pipe() to redirect stdin input
-				execl(exec_file, ???, NULL);
-				fprintf(stderr, "child process failed..\n");
-				exit(1);
-			} else {
-				// parent process waits for child to finish
-				waitpid(pid, &status, 0);	// need time also as global var
-
-				/////////////////////////////////////////////////////
-				recieve the output of child via stderr using unnamed pipe
-				/////////////////////////////////////////////////////
-				close(pipe_fd[1]);
-				char buf[BUFSIZ];
-				char * output
-				ssize_t num_bytes_read;
-				while ((num_bytes_read = read(pipe_fd[0], buf, BUFSIZ)) > 0) {
-					// Output the received data
-					write(output, buf, num_bytes_read);
-				}
-				close(pipe_fd[0]);
-				/////////////////////////////////////////////////////
-
-				timer.it_value.tv_sec = 0;
-				setitimer(ITIMER_REAL, &timer, NULL);
-			}
-			*/
+					*/
 
 			// if the output of stderr contains the error keyword condition
 			if (strstr(output, condition) != NULL) {
@@ -104,12 +126,12 @@ char * minimize_input(char ** input, char * condition) {
 		// decrement substring by 1
 		sub_length = sub_length - 1;
 	}
-
+	
 	return test_input;
 }
 
-char * delta_debug(char ** input, char * condition) {
-	return minimize_input(input, condition);
+char * delta_debug(char ** input, char * condition, char * exec_file, char * target_options[]) {
+	return minimize_input(input, condition, exec_file, target_options[]);
 }
 
 char ** file_data(char * filepath) {
@@ -118,7 +140,7 @@ char ** file_data(char * filepath) {
 	long file_length;
 
 	// Open file
-	fp = fopen(filepath) "r"); // use file path specified by -i option
+	fp = fopen(filepath, "r"); // use file path specified by -i option
 
 	// Check if file exists
 	if (fp == NULL) {
@@ -132,7 +154,7 @@ char ** file_data(char * filepath) {
     rewind(fp);
 
 	buffer = (char **) malloc(sizeof(char *) * file_length);
-    for (int i = 0; i < file_size; i++) {
+    for (int i = 0; i < file_length; i++) {
         buffer[i] = (char *) malloc(sizeof(char) * 256);
     }
 
@@ -161,10 +183,6 @@ int main(int argc, char *argv[]) {
 	int oflag = 0;
 
 	int opt;
-
-	//pipe file descriptor, 0 for reading, 1 for writing
-	int pipeFD[2];
-
     // signal
     timer.it_value.tv_sec = EXEC_TIME;
 	timer.it_value.tv_usec = 0;
@@ -219,44 +237,16 @@ int main(int argc, char *argv[]) {
 	}
 
 	int length_of_target_arg = argc - optind;
-	target_options = (char *) malloc(sizeof(char) * ((length_of_target_arg)));
+	target_options = (char *) malloc(sizeof(char) * (length_of_target_arg+1));
 
 	for (int i = 0; i < length_of_target_arg; i++) {
 		target_options[i] = (char *) malloc(sizeof(char) * strlen(argv[optind + i]));
 		strcpy(target_options[i], argv[optind + i]);
 	}
+	target_options[length_of_target_arg]=NULL; // End of argument when running execv
 
 	char ** crash_data = file_data(crash_file);	// read contents from crash input filepath
-	char * outut_result = delta_debug(crash_data, error_string);
-	
-	//create pipe
-	if(pipe(pipeFD)!=0){
-		perror("Pipe Error");
-		exit(1);
-	}
-
-	/////////////////////////////////////////////////////
-	// move fork(), execl(), and pipe to minimize_input()
-	/////////////////////////////////////////////////////
-    pid = fork();
-    if (pid < 0) {
-        fprintf(stderr, "fork failed..\n");
-        exit(1);
-    } else if (pid == 0) {
-        // child process executes binary file
-        execl(exec_file, exec_file, NULL);
-        fprintf(stderr, "child process failed..\n");
-        exit(1);
-    } else {
-        // parent process waits for child to finish
-			
-			
-        waitpid(pid, &status, 0);
-
-        timer.it_value.tv_sec = 0;
-        setitimer(ITIMER_REAL, &timer, NULL);
-    }
-	/////////////////////////////////////////////////////
+	char * output_result = delta_debug(crash_data, error_string, exec_file, target_options[]);
 
     return 0;
 }
