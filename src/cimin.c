@@ -24,14 +24,19 @@ void handle_signal(int sig) {
     }
 }
 
-char program_exec(char * input, char * exec_file, char * target_options[]){
-	char * output;
+char program_exec(char * input, char * condition, char * exec_file, char * target_options[]){
 
 	//pipe file descriptor, 0 for reading, 1 for writing
-	int pipeFD[2];
+	int to_child_FD[2];
+	int to_parent_FD[2];
+	
 	
 	//create pipe
-	if(pipe(pipeFD)!=0){
+	if(pipe(to_child_FD)!=0){
+		perror("Pipe Error");
+		exit(1);
+	}
+	if(pipe(to_parent_FD)!=0){
 		perror("Pipe Error");
 		exit(1);
 	}
@@ -42,26 +47,34 @@ char program_exec(char * input, char * exec_file, char * target_options[]){
 		fprintf(stderr, "fork failed..\n");
 		exit(1);
 	} else if (pid == 0) {
-		// child process executes binary file
 		// use pipe() to redirect stdin input
-		close(fileFD[1]);
-        dup2(fd[0], STDIN_FILENO); 
+		close(to_child_FD[1]);
+		close(to_parent_FD[0]);
+        dup2(to_child_FD[0], STDIN_FILENO); 
+		dup2(to_parent_FD[1],STDERR_FILENO);
+		// child process executes binary file
 		if( execv(exec_file, target_options)==-1){
 			fprintf(stderr, "child process failed..\n");
 			exit(1);
 		}
-	} else {
-				// parent process waits for child to finish
-				waitpid(pid, &status, 0);	// need time also as global var
+	}
 
-				/////////////////////////////////////////////////////
-				recieve the output of child via stderr using unnamed pipe
-				/////////////////////////////////////////////////////
-				close(pipe_fd[1]);
-				char buf[BUFSIZ];
-				char * output;
-				ssize_t num_bytes_read;
-			}
+	// parent process 
+	close(to_child_FD[0]);
+	close(to_parent_FD[1]);
+        
+	char buf[BUFSIZ];
+	char * output;
+	ssize_t num_bytes_read;
+
+	write(to_child_FD[1],input,sizeof(input));
+
+	// parent process waits for child to finish
+	waitpid(pid, &status, 0);	// need time also as global var
+		/////////////////////////////////////////////////////
+		//recieve the output of child via stderr using unnamed pipe
+		/////////////////////////////////////////////////////
+	
 				while ((num_bytes_read = read(pipe_fd[0], buf, BUFSIZ)) > 0) {
 					// Output the received data
 					write(output, buf, num_bytes_read);
@@ -82,15 +95,8 @@ char * minimize_input(char ** input, char * condition, char * exec_file, char * 
 	int input_length = strlen(test_input);	// length of input
 	int sub_length = input_length - 1;		// length of substring of input
 
-	// pipe init
-	int pipe_fd[2];
-	if (pipe(pipe_fd) == -1) {
-		perror("pipe");
-		exit(EXIT_FAILURE);
-	}
-
 	while (sub_length > 0) {
-		for (int i = 0; i < input_length - sub_length - 1) {
+		for (int i = 0; i < input_length - sub_length) { 
 			char * head, tail;
 
 			strncpy(head, test_input, i);	// [0..i-1]
@@ -98,7 +104,7 @@ char * minimize_input(char ** input, char * condition, char * exec_file, char * 
 			strncpy(tail, test_input + offset, input_length);	// ..|t|-1]
 
 			char * output;
-			// char * output = program_exec(strcat(head, tail));
+			// char * output = program_exec(strcat(head, tail),condition,exec_file,target_option);
 
 			/*
 			/////////////////////////////////////////////////////
@@ -131,7 +137,7 @@ char * minimize_input(char ** input, char * condition, char * exec_file, char * 
 }
 
 char * delta_debug(char ** input, char * condition, char * exec_file, char * target_options[]) {
-	return minimize_input(input, condition, exec_file, target_options[]);
+	return minimize_input(input, condition, exec_file, target_options);
 }
 
 char ** file_data(char * filepath) {
@@ -246,7 +252,7 @@ int main(int argc, char *argv[]) {
 	target_options[length_of_target_arg]=NULL; // End of argument when running execv
 
 	char ** crash_data = file_data(crash_file);	// read contents from crash input filepath
-	char * output_result = delta_debug(crash_data, error_string, exec_file, target_options[]);
+	char * output_result = delta_debug(crash_data, error_string, exec_file, target_options);
 
     return 0;
 }
