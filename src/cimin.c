@@ -104,7 +104,6 @@ char * program_exec(char ** input, char * exec_file, char ** target_options) {
 
 	// recieve the output of child via stderr using unnamed pipe
 	read(to_parent_FD[0], buf, BUFSIZ);
-	printf("%s\n", buf);
 	close(to_parent_FD[0]);
 
 	return buf;
@@ -200,7 +199,7 @@ char ** file_data(char * filepath) {
 
         if (buffer[i] == NULL) {
             fclose(fp);
-            printf("Error allocating memory\n");
+            fprintf(stderr, "Error allocating memory\n");
 
             return NULL;
         }

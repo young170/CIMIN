@@ -12,6 +12,12 @@
 
 #define EXEC_TIME 3
 
+#ifdef DEBUG
+    #define DPRINT(func) func;
+#else
+    #define DPRINT(func) ;
+#endif
+
 void end_program();
 void handle_signal(int sig);
 char * program_exec(char ** input, char * exec_file, char ** target_options);
