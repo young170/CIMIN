@@ -233,20 +233,22 @@ int main(int argc, char *argv[]) {
 	while ((opt = getopt(7, argv, "i:m:o:")) != -1) {
 		switch (opt) {
 			case 'i':	// -i : input file path
-				crash_file = (char *) malloc(sizeof(char) * strlen(optarg));
+				crash_file = (char *) malloc(sizeof(char) * (strlen(optarg) + 2));
+				optarg[strlen(optarg)] = '\0';
 				strcpy(crash_file, optarg);
-				crash_file[strlen(crash_file)] = '\0';
 
 				iflag = 1;
 				break;
 			case 'm':	// -m : keyword message
-				error_string = (char *) malloc(sizeof(char) * strlen(optarg));
+				error_string = (char *) malloc(sizeof(char) * (strlen(optarg) + 2));
+				optarg[strlen(optarg)] = '\0';
 				strcpy(error_string, optarg);
 
 				mflag = 1;
 				break;
 			case 'o' :	// -o : output file path
-				reduced_file = (char *) malloc(sizeof(char) * strlen(optarg));
+				reduced_file = (char *) malloc(sizeof(char) * (strlen(optarg) + 2));
+				optarg[strlen(optarg)] = '\0';
 				strcpy(reduced_file, optarg);
 
 				oflag = 1;
@@ -271,6 +273,8 @@ int main(int argc, char *argv[]) {
 	target_options[length_of_target_arg] = NULL; // end of argument when running execv
 
 	// main process
+	printf("%s\n", crash_file);
+	printf("%s\n", error_string);
 	char ** crash_data = file_data(crash_file);	// read contents from crash input filepath
 	char* output_exec = program_exec(crash_data, target_options[0], target_options);
 	// char * output_result = delta_debug(crash_data, error_string, exec_file, target_options);
