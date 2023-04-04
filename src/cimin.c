@@ -47,14 +47,14 @@ void handle_signal(int sig) {
 	// if alarm signal, end program
 	if (sig == SIGALRM) {
 		fprintf(stderr, "Execution time passed 3 sec..\n");
-		return;
 	}
 	// if interrupt signal, clean up & end program
 	else if (sig == SIGINT) {
         fprintf(stderr, "\nProgram quitting due to interrupt..");
-        end_program();
-        exit(1);
     }
+
+	end_program();
+	exit(1);
 }
 
 char * program_exec(char * input, char * exec_file, char ** target_options) {
@@ -142,47 +142,83 @@ char * program_exec(char * input, char * exec_file, char ** target_options) {
 	return buf;
 }
 
-// char ** minimize_input(char ** input, char * condition, char * exec_file, char * target_options[]) {
-// 	char ** test_input = input;				// variable input
-// 	int input_length = strlen(test_input);	// length of input
-// 	int sub_length = input_length - 1;		// length of substring of input
+char * minimize_input(char * input, char * condition, char * exec_file, char ** target_options) {
+	char * test_input = (char *) malloc(sizeof(char) * strlen(input));
+	test_input = input;						// variable input, t
+	int input_length = strlen(test_input);	// length of input, |t|
+	int sub_length = input_length - 1;		// length of substring of input, s = t - 1
 
-// 	while (sub_length > 0) {
-// 		for (int i = 0; i < input_length - sub_length; i++) { 
-// 			char * head, tail;
+	while (sub_length > 0) {
+		for (int i = 0; i <= input_length - sub_length; i++) {	// i E [0, |t| - s]
+			char * head = (char *) malloc(sizeof(char) * (i + 1));
+			if (i != 0) {
+				strncpy(head, test_input, i);	// head = t[0..i - 1]
+				head[i] = '\0';
+			}
 
-// 			strncpy(head, test_input, i);	// [0..i-1]
-// 			int offset = i + sub_length;	// [i+s..
-// 			strncpy(tail, test_input + offset, input_length);	// ..|t|-1]
+			int offset = i + sub_length;	// offset = i + s
+			
+			char * tail;
+			if (offset <= input_length - 1) {
+				tail = (char *) malloc(sizeof(char) * (input_length - offset + 1));
+				strncpy(tail, test_input + offset, input_length - offset);	// tail = t[i + s..|t| - 1]
+				tail[input_length - offset] = '\0';
+			}
+			
+			// if the output of stderr contains the error keyword condition
+			char * reduced_input = (char * ) malloc(sizeof(char) * input_length);
+			if (i != 0) {
+				if (offset <= input_length - 1) {
+					reduced_input = strcat(head, tail);
+				} else {
+					strcpy(reduced_input, head);
+				}
+			} else {
+				strcpy(reduced_input, tail);
+			}
 
-// 			char * output = program_exec(strcat(head, tail), condition, exec_file, target_option);
+			printf("cat-%s\n", reduced_input);
+			char * output = program_exec(reduced_input, exec_file, target_options);	// output = p(head + tail)
+			if (strstr(output, condition) != NULL) {	// condition satisfied
+				return minimize_input(reduced_input, condition, exec_file, target_options);	// minimize_input(head + tail)
+			}
 
-// 			// if the output of stderr contains the error keyword condition
-// 			if (strstr(output, condition) != NULL) {
-// 				return minimize_input(strcat(head, tail));
-// 			}
-// 		}
+			free(head);
+			head = NULL;
+			if (offset <= input_length - 1) {
+				free(tail);
+				tail = NULL;
+			}
+			free(reduced_input);
+			reduced_input = NULL;
+			printf("%s\n", output);
+		}
 
-// 		for (int i = 0; i < input_length - sub_length - 1) {
-// 			char * mid;
-// 			strncpy(mid, test_input + i, i + sub_length);	// [i..i+s-1]
+		for (int i = 0; i <= input_length - sub_length; i++) {	// i E [0, |t| - s]
+			char * mid = (char *) malloc(sizeof(char) * (sub_length + 1));
 
-// 			char * output = program_exec(mid, condition, exec_file, target_option);
-// 			if (strstr(output, condition) != NULL) {
-// 				return minimize_input(mid);
-// 			}
-// 		}
+			int offset = i;	// offset = i
+			strncpy(mid, test_input + offset, offset + sub_length);	// mid = t[i..i + s - 1]
+			mid[sub_length] = '\0';
 
-// 		// decrement substring by 1
-// 		sub_length = sub_length - 1;
-// 	}
+			char * output = program_exec(mid, exec_file, target_options);	// output = p(mid)
+			if (strstr(output, condition) != NULL) {	// condition satisfied
+				return minimize_input(mid, condition, exec_file, target_options);	// minimize_input(mid)
+			}
+
+			free(mid);
+		}
+
+		// decrement substring by 1
+		sub_length = sub_length - 1;
+	}
 	
-// 	return test_input;
-// }
+	return test_input;
+}
 
-// char ** delta_debug(char ** input, char * condition, char * exec_file, char ** target_options) {
-// 	return minimize_input(input, condition, exec_file, target_options);
-// }
+char * delta_debug(char * input, char * condition, char * exec_file, char ** target_options) {
+	return minimize_input(input, condition, exec_file, target_options);
+}
 
 char * file_data(char * filepath) {
     FILE *fp;
@@ -279,6 +315,11 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
+	if (iflag == 0 | mflag == 0 | oflag == 0) {
+		fprintf(stderr, "Error: empty option string..\n");
+		exit(1);
+	}
+
 	// length of options following the target binary exec file
 	int length_of_target_arg = argc - optind;
 	target_options = (char **) malloc(sizeof(char *) * (length_of_target_arg + 1));	// space for NULL
@@ -294,9 +335,8 @@ int main(int argc, char *argv[]) {
 	global_handler.output_string = crash_data;
 	global_handler.length = strlen(crash_data);
 
-	char * output_exec = program_exec(crash_data, target_options[0], target_options);
-	while (1);
-	// char * output_result = delta_debug(crash_data, error_string, exec_file, target_options);
+	// char * output_exec = program_exec(crash_data, target_options[0], target_options);
+	char * output_exec = delta_debug(crash_data, error_string, target_options[0], target_options);
 
 
 
