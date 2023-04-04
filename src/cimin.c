@@ -1,30 +1,63 @@
 #include "cimin.h"
 
+struct handler_args global_handler;
+
 void end_program() {
     // end the program
     /*
-    cimin must stop the running test if exists,
-    and prints out the size of the shortest crashing input found so far,
-    produces the output with it, and terminates the execution.
+    1. cimin must stop the running test if exists,
+    2. prints out the size of the shortest crashing input found so far,
+    3. produces the output with it,
+    4. terminates the execution.
     */
+    kill(global_handler.kill_pid, SIGTERM);
+    wait(NULL);
+
+	printf("\n============================================");
+	printf("\n> Program ended. Printing result data.");
+	printf("\n============================================");
+    printf("\n> Size : %d", global_handler.length);
+    printf("\n> Minimized Output : %s\n", global_handler.output_string);
+    
+	write_file(global_handler.output_filename);
+
 	return;
+}
+
+void write_file(char * output_filename) {
+	char *write_string = global_handler.output_string;
+    FILE *fp;
+
+    if (write_string == NULL || output_filename == NULL) {
+        fprintf(stderr, "Error: Invalid input\n");
+        return;
+    }
+
+    fp = fopen(output_filename, "w");
+    if (fp == NULL) {
+        fprintf(stderr, "Error: Failed to open file\n");
+        return;
+    }
+
+    fwrite(write_string, sizeof(char), strlen(write_string), fp);
+    fclose(fp);
 }
 
 void handle_signal(int sig) {
 	// if alarm signal, end program
 	if (sig == SIGALRM) {
 		fprintf(stderr, "Execution time passed 3 sec..\n");
-		exit(1);
+		return;
 	}
 	// if interrupt signal, clean up & end program
 	else if (sig == SIGINT) {
-        fprintf(stderr, "\nProgram quitting due to interrupt..\n");
+        fprintf(stderr, "\nProgram quitting due to interrupt..");
         end_program();
         exit(1);
     }
 }
 
-char * program_exec(char ** input, char * exec_file, char ** target_options) {
+char * program_exec(char * input, char * exec_file, char ** target_options) {
 	// pipe file descriptor, 0 for reading, 1 for writing
 	int to_child_FD[2];
 	int to_parent_FD[2];
@@ -55,6 +88,7 @@ char * program_exec(char ** input, char * exec_file, char ** target_options) {
 	}
 
 	child_pid = fork();
+	global_handler.kill_pid = child_pid;
 	if (child_pid < 0) {
 		fprintf(stderr, "fork failed..\n");
 		exit(1);
@@ -83,22 +117,27 @@ char * program_exec(char ** input, char * exec_file, char ** target_options) {
 	close(to_parent_FD[1]);	// close write
 
 	// write to pipe_to_child - stdin
-	int j = 0;
-    while (input[j] != NULL) {
-        write(to_child_FD[1], input[j], strlen(input[j]));
-        j++;
-    }
+	write(to_child_FD[1], input, strlen(input));
 
 	// need to close write pipe - or else it constantly waits for input
 	close(to_child_FD[1]);
 
 	waitpid(child_pid, &status, 0);
 
-	char buf[BUFSIZ];
+	char * buf = (char *) malloc(sizeof(char) * BUFSIZ);
 	// recieve the output of child via stderr using unnamed pipe
 	read(to_parent_FD[0], buf, BUFSIZ);
 	printf("%s\n", buf);	// intentional - print stderr to console
 	close(to_parent_FD[0]);
+
+	// reset timer
+	timer.it_value.tv_sec = 0;
+    timer.it_value.tv_usec = 0;
+    setitimer(ITIMER_REAL, &timer, NULL);
+
+	// save global data, for SIGINT
+	global_handler.length = strlen(buf);
+	global_handler.output_string = buf;
 
 	return buf;
 }
@@ -145,12 +184,12 @@ char * program_exec(char ** input, char * exec_file, char ** target_options) {
 // 	return minimize_input(input, condition, exec_file, target_options);
 // }
 
-char ** file_data(char * filepath) {
+char * file_data(char * filepath) {
     FILE *fp;
-    char ** buffer = NULL;
+    char * buffer = NULL;
     long file_length;
 
-    fp = fopen(filepath, "r"); // use file path specified by -i option
+    fp = fopen(filepath, "rb"); // use file path specified by -i option
 
     // check if file exists
     if (fp == NULL) {
@@ -165,7 +204,7 @@ char ** file_data(char * filepath) {
     rewind(fp);
 
     // malloc buffer
-    buffer = malloc(sizeof(char *));
+    buffer = malloc(sizeof(char) * file_length);
     if (buffer == NULL) {
         fclose(fp);
         fprintf(stderr, "Error allocating memory..\n");
@@ -173,40 +212,16 @@ char ** file_data(char * filepath) {
         return NULL;
     }
 
-    // read contents
-    int i = 0;
-    char * line = NULL;
-    size_t len = 0;
-    ssize_t read;
+	// read contents
+    size_t bytes_read = fread(buffer, 1, file_length, fp);
 
-    while ((read = getline(&line, &len, fp)) != -1) {
-        buffer = realloc(buffer, sizeof(char *) * (i + 1)); // allocate memory for a new pointer to char
-
-        if (buffer == NULL) {
-            fclose(fp);
-            printf("Error allocating memory\n");
-
-            return NULL;
-        }
-
-        buffer[i] = malloc(sizeof(char) * (read + 1)); // allocate memory for line
-
-        if (buffer[i] == NULL) {
-            fclose(fp);
-            fprintf(stderr, "Error allocating memory\n");
-
-            return NULL;
-        }
-
-        strcpy(buffer[i], line); // copy line to buffer
-        i++;
+	if (bytes_read != file_length) {
+        fclose(fp);
+        free(buffer);
+        fprintf(stderr, "Error reading file..\n");
+        return NULL;
     }
     fclose(fp);
-
-    if (line)
-		free(line); // free memory allocated by getline()
-
-	buffer[i - 1][strlen(buffer[i - 1]) - 1] = '\0';
 
     return buffer;
 }
@@ -251,6 +266,8 @@ int main(int argc, char *argv[]) {
 				optarg[strlen(optarg)] = '\0';
 				strcpy(reduced_file, optarg);
 
+				global_handler.output_filename = reduced_file;
+
 				oflag = 1;
 				break;
 			case '?' :	// exception
@@ -264,7 +281,7 @@ int main(int argc, char *argv[]) {
 
 	// length of options following the target binary exec file
 	int length_of_target_arg = argc - optind;
-	target_options = (char **) malloc(sizeof(char) * (length_of_target_arg+1));
+	target_options = (char **) malloc(sizeof(char *) * (length_of_target_arg + 1));	// space for NULL
 
 	for (int i = 0; i < length_of_target_arg; i++) {
 		target_options[i] = (char *) malloc(sizeof(char) * strlen(argv[optind + i]));
@@ -273,10 +290,12 @@ int main(int argc, char *argv[]) {
 	target_options[length_of_target_arg] = NULL; // end of argument when running execv
 
 	// main process
-	printf("%s\n", crash_file);
-	printf("%s\n", error_string);
-	char ** crash_data = file_data(crash_file);	// read contents from crash input filepath
-	char* output_exec = program_exec(crash_data, target_options[0], target_options);
+	char * crash_data = file_data(crash_file);	// read contents from crash input filepath
+	global_handler.output_string = crash_data;
+	global_handler.length = strlen(crash_data);
+
+	char * output_exec = program_exec(crash_data, target_options[0], target_options);
+	while (1);
 	// char * output_result = delta_debug(crash_data, error_string, exec_file, target_options);
 
 
@@ -285,18 +304,14 @@ int main(int argc, char *argv[]) {
 	free(crash_file);
 	free(error_string);
 	free(reduced_file);
+	free(crash_data);
+	free(output_exec);
 
 	// free char**
 	for (int i = 0; i < sizeof(target_options) / sizeof(char *); i++) {
 		free(target_options[i]);
 	}
 	free(target_options);
-
-	// free char**
-	for (int i = 0; i < sizeof(crash_data) / sizeof(char *); i++) {
-		free(crash_data[i]);
-	}
-	free(crash_data);
 
     return 0;
 }
