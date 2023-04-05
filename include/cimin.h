@@ -18,15 +18,6 @@
     #define DPRINT(func) ;
 #endif
 
-
-
-struct handler_args {
-    int kill_pid;
-    int length;
-    char * output_string;
-    char * output_filename;
-};
-
 void end_program();
 void write_file(char * output_filename);
 void handle_signal(int sig);
