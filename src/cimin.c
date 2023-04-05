@@ -3,8 +3,8 @@
 struct handler_args {
     int kill_pid;
     int length;
-    char * output_string;
-    char * output_filename;
+    char* output_string;
+    char* output_filename;
 } global_handler;
 
 void end_program() {
@@ -62,7 +62,7 @@ void handle_signal(int sig) {
 	exit(1);
 }
 
-char * program_exec(char * input, char * exec_file, char ** target_options) {
+char* program_exec(char* input, char* exec_file, char** target_options) {
 	// pipe file descriptor, 0 for reading, 1 for writing
 	int to_child_FD[2];
 	int to_parent_FD[2];
@@ -129,9 +129,10 @@ char * program_exec(char * input, char * exec_file, char ** target_options) {
 
 	waitpid(child_pid, &status, 0);
 
-	char * buf = (char *) malloc(sizeof(char) * BUFSIZ);
+	char* buf = (char*) malloc(sizeof(char) * BUFSIZ);
 	// recieve the output of child via stderr using unnamed pipe
-	read(to_parent_FD[0], buf, BUFSIZ);
+	int num_of_bytes = read(to_parent_FD[0], buf, BUFSIZ);
+	buf[num_of_bytes] = '\0';
 	printf("%s\n", buf);
 
 	close(to_parent_FD[0]);
@@ -144,27 +145,28 @@ char * program_exec(char * input, char * exec_file, char ** target_options) {
 	return buf;
 }
 
-char * minimize_input(char * input, char * condition, char * exec_file, char ** target_options) {
-	char * input_placeholder = (char *) malloc(sizeof(char) * strlen(input));
+char* minimize_input(char* input, char* condition, char* exec_file, char** target_options) {
+	char* input_placeholder = (char*) malloc(sizeof(char) * strlen(input));
+
 	strncpy(input_placeholder, input, strlen(input));	// variable input, t
 	int input_length = strlen(input_placeholder);		// length of input, |t|
 	int sub_length = input_length - 1;					// length of substring of input, s = t - 1
 
 	while (sub_length > 0) {
 		for (int i = 0; i <= input_length - sub_length; i++) {
-			char * head = (char *) malloc(sizeof(char) * (i + 1));
+			char * head = (char*) malloc(sizeof(char) * (i + 1));
 			strncpy(head, input_placeholder, i);
 			head[i] = '\0';
 
-			char * tail = (char *) malloc(sizeof(char) * (input_length - i - sub_length + 1));
+			char* tail = (char*) malloc(sizeof(char) * (input_length - i - sub_length + 1));
 			strncpy(tail, input_placeholder + i + sub_length, input_length - i - sub_length);
 			tail[input_length - i - sub_length] = '\0';
 
-			char * test_input = (char *) malloc(sizeof(char) * (i + input_length - i - sub_length + 1));
+			char* test_input = (char*) malloc(sizeof(char) * (i + input_length - i - sub_length + 1));
 			strcpy(test_input, head);
-			strcpy(test_input, tail);
+			strcat(test_input, tail);
 
-			char * output = program_exec(test_input, exec_file, target_options);	// output = p(head + tail)
+			char* output = program_exec(test_input, exec_file, target_options);	// output = p(head + tail)
 			if (strstr(output, condition) != NULL) {	// condition satisfied
 				// save global data, for SIGINT
 				global_handler.length = strlen(test_input);
@@ -179,17 +181,18 @@ char * minimize_input(char * input, char * condition, char * exec_file, char ** 
 				return input_placeholder;
 			}
 
+			free(output);
 			free(test_input);
 			free(head);
 			free(tail);
 		}
 
 		for (int i = 0; i <= input_length - sub_length; i++) {
-			char * mid = (char *) malloc(sizeof(char) * (sub_length + 1));
+			char* mid = (char*) malloc(sizeof(char) * (sub_length + 1));
 			strncpy(mid, input_placeholder + i, sub_length);
 			mid[sub_length] = '\0';
 
-			char * output = program_exec(mid, exec_file, target_options);	// output = p(head + tail)
+			char* output = program_exec(mid, exec_file, target_options);	// output = p(head + tail)
 			if (strstr(output, condition) != NULL) {	// condition satisfied
 				// save global data, for SIGINT
 				global_handler.length = strlen(mid);
@@ -202,82 +205,23 @@ char * minimize_input(char * input, char * condition, char * exec_file, char ** 
 				return input_placeholder;
 			}
 
+			free(output);
 			free(mid);
 		}
 
 		sub_length = sub_length - 1;
 	}
 
-	// char * test_input = (char *) malloc(sizeof(char) * strlen(input));
-	// // test_input = input;						// variable input, t
-	// strcpy(test_input, input);
-	// int input_length = strlen(test_input);	// length of input, |t|
-	// int sub_length = input_length - 1;		// length of substring of input, s = t - 1
-
-	// while (sub_length > 0) {
-	// 	for (int i = 0; i <= input_length - sub_length; i++) {	// i E [0, |t| - s]
-	// 		char * input_placeholder = (char * ) malloc(sizeof(char) * (input_length + 1));
-	// 		memset(input_placeholder, 0, sizeof(char) * (input_length + 1));
-
-	// 		if (i != 0) {	// check if head is not an empty string
-	// 			strncpy(input_placeholder, test_input, i);	// head = t[0..i - 1]
-	// 			// printf("head-%s\n", input_placeholder);
-	// 		}
-
-	// 		int offset = i + sub_length;	// offset = i + s
-
-	// 		if (offset <= input_length - 1) {	// check if tail is not an empty string
-	// 			strncpy(input_placeholder + i + 1, test_input + offset, input_length - offset);	// tail = t[i + s..|t| - 1]
-	// 			// printf("tail-%s\n", input_placeholder);
-	// 		}
-	// 		input_placeholder[strlen(input_placeholder)] = '\0';
-	// 		// printf("head+tail-%s\n", input_placeholder);
-			
-	// 		char * output = program_exec(input_placeholder, exec_file, target_options);	// output = p(head + tail)
-
-	// 		if (strstr(output, condition) != NULL) {	// condition satisfied
-	// 			// save global data, for SIGINT
-	// 			global_handler.length = strlen(output);
-	// 			global_handler.output_string = output;
-	// 			return minimize_input(input_placeholder, condition, exec_file, target_options);	// minimize_input(head + tail)
-	// 		}
-
-	// 		free(input_placeholder);
-	// 	}
-
-	// 	for (int i = 0; i <= input_length - sub_length; i++) {	// i E [0, |t| - s]
-	// 		char * mid = (char *) malloc(sizeof(char) * (sub_length + 1));
-
-	// 		int offset = i;	// offset = i
-	// 		strncpy(mid, test_input + offset, offset + sub_length);	// mid = t[i..i + s - 1]
-	// 		mid[sub_length] = '\0';
-	// 		// printf("mid-%s\n", mid);
-
-	// 		char * output = program_exec(mid, exec_file, target_options);	// output = p(mid)
-	// 		if (strstr(output, condition) != NULL) {	// condition satisfied
-	// 			// save global data, for SIGINT
-	// 			global_handler.length = strlen(output);
-	// 			global_handler.output_string = output;
-	// 			return minimize_input(mid, condition, exec_file, target_options);	// minimize_input(mid)
-	// 		}
-
-	// 		free(mid);
-	// 	}
-
-	// 	// decrement substring by 1
-	// 	sub_length = sub_length - 1;
-	// }
-	
 	return input_placeholder;
 }
 
-char * delta_debug(char * input, char * condition, char * exec_file, char ** target_options) {
+char* delta_debug(char* input, char* condition, char* exec_file, char** target_options) {
 	return minimize_input(input, condition, exec_file, target_options);
 }
 
-char * file_data(char * filepath) {
-    FILE *fp;
-    char * buffer = NULL;
+char* file_data(char* filepath) {
+    FILE* fp;
+    char* buffer = NULL;
     long file_length;
 
     fp = fopen(filepath, "rb"); // use file path specified by -i option
@@ -317,7 +261,7 @@ char * file_data(char * filepath) {
     return buffer;
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, char* argv[]) {
 	// flags of input options
 	// 0 : false, 1 : true
 	int iflag = 0;
@@ -326,10 +270,10 @@ int main(int argc, char *argv[]) {
 	int opt;
 
     // input
-	char * crash_file;
-	char * error_string;
-	char * reduced_file;
-	char ** target_options;
+	char* crash_file;
+	char* error_string;
+	char* reduced_file;
+	char** target_options;
 
 	if (argc <= 7) {
 		fprintf(stderr, "Input options count..\n");
@@ -339,21 +283,21 @@ int main(int argc, char *argv[]) {
 	while ((opt = getopt(7, argv, "i:m:o:")) != -1) {
 		switch (opt) {
 			case 'i':	// -i : input file path
-				crash_file = (char *) malloc(sizeof(char) * (strlen(optarg) + 2));
+				crash_file = (char*) malloc(sizeof(char) * (strlen(optarg) + 2));
 				optarg[strlen(optarg)] = '\0';
 				strcpy(crash_file, optarg);
 
 				iflag = 1;
 				break;
 			case 'm':	// -m : keyword message
-				error_string = (char *) malloc(sizeof(char) * (strlen(optarg) + 2));
+				error_string = (char*) malloc(sizeof(char) * (strlen(optarg) + 2));
 				optarg[strlen(optarg)] = '\0';
 				strcpy(error_string, optarg);
 
 				mflag = 1;
 				break;
 			case 'o' :	// -o : output file path
-				reduced_file = (char *) malloc(sizeof(char) * (strlen(optarg) + 2));
+				reduced_file = (char*) malloc(sizeof(char) * (strlen(optarg) + 2));
 				optarg[strlen(optarg)] = '\0';
 				strcpy(reduced_file, optarg);
 
@@ -377,10 +321,10 @@ int main(int argc, char *argv[]) {
 
 	// length of options following the target binary exec file
 	int length_of_target_arg = argc - optind;
-	target_options = (char **) malloc(sizeof(char *) * (length_of_target_arg + 1));	// space for NULL
+	target_options = (char**) malloc(sizeof(char*) * (length_of_target_arg + 1));	// space for NULL
 
 	for (int i = 0; i < length_of_target_arg; i++) {
-		target_options[i] = (char *) malloc(sizeof(char) * strlen(argv[optind + i]));
+		target_options[i] = (char*) malloc(sizeof(char) * strlen(argv[optind + i]));
 		strcpy(target_options[i], argv[optind + i]);
 	}
 	target_options[length_of_target_arg] = NULL; // end of argument when running execv
@@ -391,8 +335,8 @@ int main(int argc, char *argv[]) {
 	global_handler.output_string = crash_data;
 	global_handler.length = strlen(crash_data);
 
-	// char * output_exec = delta_debug(crash_data, error_string, target_options[0], target_options);
-	char * output_exec = program_exec(crash_data, target_options[0], target_options);
+	char * output_exec = delta_debug(crash_data, error_string, target_options[0], target_options);
+	// char * output_exec = program_exec(crash_data, target_options[0], target_options);
 
 	end_program();
 
@@ -404,7 +348,7 @@ int main(int argc, char *argv[]) {
 	free(output_exec);
 
 	// free char**
-	for (int i = 0; i < sizeof(target_options) / sizeof(char *); i++) {
+	for (int i = 0; i < sizeof(target_options) / sizeof(char*); i++) {
 		free(target_options[i]);
 	}
 	free(target_options);
