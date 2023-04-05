@@ -133,7 +133,7 @@ char* program_exec(char* input, char* exec_file, char** target_options) {
 	// recieve the output of child via stderr using unnamed pipe
 	int num_of_bytes = read(to_parent_FD[0], buf, BUFSIZ);
 	buf[num_of_bytes] = '\0';
-	printf("%s\n", buf);
+	// printf("%s\n", buf);
 
 	close(to_parent_FD[0]);
 
@@ -166,18 +166,23 @@ char* minimize_input(char* input, char* condition, char* exec_file, char** targe
 			strcpy(test_input, head);
 			strcat(test_input, tail);
 
+			printf("head: %s, tail: %s, test_input: %s\n", head, tail, test_input);
+
 			char* output = program_exec(test_input, exec_file, target_options);	// output = p(head + tail)
 			if (strstr(output, condition) != NULL) {	// condition satisfied
+			printf("condition satisfied, current input(head+tail): %s\n", test_input);
 				// save global data, for SIGINT
 				global_handler.length = strlen(test_input);
 				global_handler.output_string = test_input;
 
+				char* updated_input = minimize_input(test_input, condition, exec_file, target_options);	// minimize_input(head + tail)
 				free(input_placeholder);
-				input_placeholder = minimize_input(test_input, condition, exec_file, target_options);	// minimize_input(head + tail)
-				
+				input_placeholder = updated_input;
+
 				free(test_input);
 				free(head);
 				free(tail);
+				free(output);
 				return input_placeholder;
 			}
 
@@ -191,17 +196,20 @@ char* minimize_input(char* input, char* condition, char* exec_file, char** targe
 			char* mid = (char*) malloc(sizeof(char) * (sub_length + 1));
 			strncpy(mid, input_placeholder + i, sub_length);
 			mid[sub_length] = '\0';
-
+printf("mid: %s\n", mid);
 			char* output = program_exec(mid, exec_file, target_options);	// output = p(head + tail)
 			if (strstr(output, condition) != NULL) {	// condition satisfied
+			printf("condition satisfied, current input(mid): %s\n", mid);
 				// save global data, for SIGINT
 				global_handler.length = strlen(mid);
 				global_handler.output_string = mid;
 
+				char* updated_input = minimize_input(mid, condition, exec_file, target_options);	// minimize_input(head + tail)
 				free(input_placeholder);
-				input_placeholder = minimize_input(mid, condition, exec_file, target_options);	// minimize_input(head + tail)
-				
+				input_placeholder = updated_input;
+
 				free(mid);
+				free(output);
 				return input_placeholder;
 			}
 
@@ -336,9 +344,10 @@ int main(int argc, char* argv[]) {
 	global_handler.length = strlen(crash_data);
 
 	char * output_exec = delta_debug(crash_data, error_string, target_options[0], target_options);
-	// char * output_exec = program_exec(crash_data, target_options[0], target_options);
 
-	end_program();
+	global_handler.output_string = output_exec;
+	global_handler.length = strlen(output_exec);
+	write_file(global_handler.output_filename);
 
 	// free char*
 	free(crash_file);
