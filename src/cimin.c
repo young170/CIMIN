@@ -196,7 +196,7 @@ char* minimize_input(char* input, char* condition, char* exec_file, char** targe
 			char* mid = (char*) malloc(sizeof(char) * (sub_length + 1));
 			strncpy(mid, input_placeholder + i, sub_length);
 			mid[sub_length] = '\0';
-printf("mid: %s\n", mid);
+			printf("mid: %s\n", mid);
 			char* output = program_exec(mid, exec_file, target_options);	// output = p(head + tail)
 			if (strstr(output, condition) != NULL) {	// condition satisfied
 			printf("condition satisfied, current input(mid): %s\n", mid);
