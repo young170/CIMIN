@@ -1,5 +1,10 @@
 #include "cimin.h"
 
+/*
+Delta debugging information in progress is stored in global_handler.
+Through this, when the program terminates due to a system call, 
+program can print out shortest crashing input found so far.
+*/
 struct handler_args {
     int kill_pid;
     int length;
@@ -170,7 +175,7 @@ char* minimize_input(char* input, char* condition, char* exec_file, char** targe
 
 			char* output = program_exec(test_input, exec_file, target_options);	// output = p(head + tail)
 			if (strstr(output, condition) != NULL) {	// condition satisfied
-			printf("condition satisfied, current input(head+tail): %s\n", test_input);
+				printf("condition satisfied, current input(head+tail): %s\n", test_input);
 				// save global data, for SIGINT
 				global_handler.length = strlen(test_input);
 				global_handler.output_string = test_input;
@@ -194,12 +199,12 @@ char* minimize_input(char* input, char* condition, char* exec_file, char** targe
 
 		for (int i = 0; i <= input_length - sub_length; i++) {
 			char* mid = (char*) malloc(sizeof(char) * (sub_length + 1));
-			strncpy(mid, input_placeholder + i, sub_length);
+			strncpy(mid, input_placeholder + i, sub_length);//mid = tm[i..i+s-1]
 			mid[sub_length] = '\0';
 			printf("mid: %s\n", mid);
 			char* output = program_exec(mid, exec_file, target_options);	// output = p(head + tail)
 			if (strstr(output, condition) != NULL) {	// condition satisfied
-			printf("condition satisfied, current input(mid): %s\n", mid);
+				printf("condition satisfied, current input(mid): %s\n", mid);
 				// save global data, for SIGINT
 				global_handler.length = strlen(mid);
 				global_handler.output_string = mid;
