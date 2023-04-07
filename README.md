@@ -18,7 +18,7 @@ $ sh build.sh
 ```
 * Example:
 ```
-./bin/cimin -i ./target_programs/jsmn/crash.json -m "heap-buffer-overflow" -o ./output/reduced ./target_programs/jsmn/jsondump
+./bin/cimin -i ./target_programs/jsmn/testcases/crash.json -m "heap-buffer-overflow" -o ./output/reduced ./target_programs/jsmn/jsondump
 ```
 3. Check the results in the output path
 ```
