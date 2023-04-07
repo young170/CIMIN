@@ -274,56 +274,49 @@ char* file_data(char* filepath) {
     return buffer;
 }
 
-int main(int argc, char* argv[]) {
+void get_arguments(int argc, char* argv[], char** crash_file, char** error_string, char** reduced_file, char*** target_options) {
 	// flags of input options
 	// 0 : false, 1 : true
 	int iflag = 0;
 	int mflag = 0;
 	int oflag = 0;
 	int opt;
-
-    // input
-	char* crash_file;
-	char* error_string;
-	char* reduced_file;
-	char** target_options;
-
 	if (argc <= 7) {
 		fprintf(stderr, "Input options count..\n");
-		return 1;
+		exit(1);
 	}
 
 	while ((opt = getopt(7, argv, "i:m:o:")) != -1) {
 		switch (opt) {
 			case 'i':	// -i : input file path
-				crash_file = (char*) malloc(sizeof(char) * (strlen(optarg) + 2));
+				*crash_file = (char*) malloc(sizeof(char) * (strlen(optarg) + 2));
 				optarg[strlen(optarg)] = '\0';
-				strcpy(crash_file, optarg);
+				strcpy(*crash_file, optarg);
 
 				iflag = 1;
 				break;
 			case 'm':	// -m : keyword message
-				error_string = (char*) malloc(sizeof(char) * (strlen(optarg) + 2));
+				*error_string = (char*) malloc(sizeof(char) * (strlen(optarg) + 2));
 				optarg[strlen(optarg)] = '\0';
-				strcpy(error_string, optarg);
+				strcpy(*error_string, optarg);
 
 				mflag = 1;
 				break;
 			case 'o' :	// -o : output file path
-				reduced_file = (char*) malloc(sizeof(char) * (strlen(optarg) + 2));
+				*reduced_file = (char*) malloc(sizeof(char) * (strlen(optarg) + 2));
 				optarg[strlen(optarg)] = '\0';
-				strcpy(reduced_file, optarg);
+				strcpy(*reduced_file, optarg);
 
-				global_handler.output_filename = reduced_file;
+				global_handler.output_filename = *reduced_file;
 
 				oflag = 1;
 				break;
 			case '?' :	// exception
           		fprintf(stderr, "Unknown option character '\\x%x'.\n", optopt);
-				return 1;
+				exit(1);
 			default:
 				fprintf(stderr, "Error option");
-            	return 1;
+            	exit(1);
 		}
 	}
 
@@ -334,13 +327,27 @@ int main(int argc, char* argv[]) {
 
 	// length of options following the target binary exec file
 	int length_of_target_arg = argc - optind;
-	target_options = (char**) malloc(sizeof(char*) * (length_of_target_arg + 1));	// space for NULL
+	*target_options = (char**) malloc(sizeof(char*) * (length_of_target_arg + 1));	// space for NULL
 
 	for (int i = 0; i < length_of_target_arg; i++) {
-		target_options[i] = (char*) malloc(sizeof(char) * strlen(argv[optind + i]));
-		strcpy(target_options[i], argv[optind + i]);
+		(*target_options)[i] = (char*) malloc(sizeof(char) * strlen(argv[optind + i]));
+		strcpy((*target_options)[i], argv[optind + i]);
 	}
-	target_options[length_of_target_arg] = NULL; // end of argument when running execv
+	(*target_options)[length_of_target_arg] = NULL; // end of argument when running execv
+
+	return;
+}
+
+int main(int argc, char* argv[]) {
+	
+    // input
+	char* crash_file;
+	char* error_string;
+	char* reduced_file;
+	char** target_options;
+	
+	//handle arguments
+	get_arguments(argc, argv, &crash_file, &error_string, &reduced_file, &target_options);
 
 	// main process
 	char * crash_data = file_data(crash_file);	// read contents from crash input filepath
