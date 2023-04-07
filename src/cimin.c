@@ -138,7 +138,7 @@ char* program_exec(char* input, char* exec_file, char** target_options) {
 	// recieve the output of child via stderr using unnamed pipe
 	int num_of_bytes = read(to_parent_FD[0], buf, BUFSIZ);
 	buf[num_of_bytes] = '\0';
-	printf("%s\n", buf);
+	// printf("%s\n", buf);
 
 	close(to_parent_FD[0]);
 
