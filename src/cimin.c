@@ -201,13 +201,13 @@ char* minimize_input(char* input, char* condition, char* exec_file, char** targe
 			strncpy(mid, input_placeholder + i, sub_length);//mid = tm[i..i+s-1]
 			mid[sub_length] = '\0';
 			printf("mid: %s\n", mid);
-			char* output = program_exec(mid, exec_file, target_options);	// output = p(head + tail)
+			char* output = program_exec(mid, exec_file, target_options);	// output = p(mid)
 			if (strstr(output, condition) != NULL) {	// condition satisfied
 				// save global data, for SIGINT
 				global_handler.length = strlen(mid);
 				global_handler.output_string = mid;
 
-				char* updated_input = minimize_input(mid, condition, exec_file, target_options);	// minimize_input(head + tail)
+				char* updated_input = minimize_input(mid, condition, exec_file, target_options);	// minimize_input(mid)
 				free(input_placeholder);
 				input_placeholder = updated_input;
 
