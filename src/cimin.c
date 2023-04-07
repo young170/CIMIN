@@ -207,7 +207,7 @@ char* minimize_input(char* input, char* condition, char* exec_file, char** targe
 				global_handler.length = strlen(mid);
 				global_handler.output_string = mid;
 
-				char* updated_input = minimize_input(mid, condition, exec_file, target_options);	// minimize_input(head + tail)
+				char* updated_input = minimize_input(mid, condition, exec_file, target_options);	// minimize_input(mid)
 				free(input_placeholder);
 				input_placeholder = updated_input;
 
