@@ -175,7 +175,6 @@ char* minimize_input(char* input, char* condition, char* exec_file, char** targe
 
 			char* output = program_exec(test_input, exec_file, target_options);	// output = p(head + tail)
 			if (strstr(output, condition) != NULL) {	// condition satisfied
-				printf("condition satisfied, current input(head+tail): %s\n", test_input);
 				// save global data, for SIGINT
 				global_handler.length = strlen(test_input);
 				global_handler.output_string = test_input;
@@ -204,7 +203,6 @@ char* minimize_input(char* input, char* condition, char* exec_file, char** targe
 			printf("mid: %s\n", mid);
 			char* output = program_exec(mid, exec_file, target_options);	// output = p(head + tail)
 			if (strstr(output, condition) != NULL) {	// condition satisfied
-				printf("condition satisfied, current input(mid): %s\n", mid);
 				// save global data, for SIGINT
 				global_handler.length = strlen(mid);
 				global_handler.output_string = mid;
@@ -270,6 +268,8 @@ char* file_data(char* filepath) {
         return NULL;
     }
     fclose(fp);
+
+	buffer[strlen(buffer)] = '\0';
 
     return buffer;
 }
