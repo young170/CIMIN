@@ -202,7 +202,7 @@ char* minimize_input(char* input, char* condition, char* exec_file, char** targe
 			strncpy(mid, input_placeholder + i, sub_length);//mid = tm[i..i+s-1]
 			mid[sub_length] = '\0';
 			printf("mid: %s\n", mid);
-			char* output = program_exec(mid, exec_file, target_options);	// output = p(head + tail)
+			char* output = program_exec(mid, exec_file, target_options);	// output = p(mid)
 			if (strstr(output, condition) != NULL) {	// condition satisfied
 				printf("condition satisfied, current input(mid): %s\n", mid);
 				// save global data, for SIGINT
