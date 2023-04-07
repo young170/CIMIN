@@ -1,7 +1,7 @@
 # Operating Systems Homework2
 * 21900458 Gunmin Yoo
 * 22100113 Seongbin Kim
-
+___
 # Usage
 1. Build the program
 ```
@@ -15,6 +15,10 @@ $ sh build.sh
 			determines whether the expected crash occurs or not
 	-o 	: a new file path to store the reduced crashing input
 	./a.out : a file path to the executable binary of the target program
+```
+* Example:
+```
+./bin/cimin -i ./target_programs/jsmn/crash.json -m "heap-buffer-overflow" -o ./output/reduced ./target_programs/jsmn/jsondump
 ```
 3. Check the results in the output path
 ```
