@@ -1,0 +1,11 @@
+balance
+./bin/cimin -i ./target_programs/balance/testcases/fail -m temp -o reduced ./target_programs/balance/balance
+
+jsmn
+./bin/cimin -i ./target_programs/jsmn/testcases/crash.json -m "heap-buffer-overflow" -o reduced ./target_programs/jsmn/jsondump
+
+libxml2
+./bin/cimin -i ./target_programs/libxml2/testcases/crash.xml -m "SEGV" -o reduced ./target_programs/libxml2/xmllint --recover --postvalid -
+
+libpng
+./bin/cimin -i ./target_programs/libpng/crash.png -m "use-of-uninitialized-value" -o reduced ./target_programs/libpng/libpng/test_pngfix
