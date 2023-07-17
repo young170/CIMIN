@@ -1,4 +1,7 @@
-# Operating Systems Homework2
+# CIMIN
+CIMIN: Crashing Input MINimizer
+
+### Contributors
 * 21900458 Gunmin Yoo
 * 22100113 Seongbin Kim
 ___
