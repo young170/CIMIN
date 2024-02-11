@@ -8,11 +8,11 @@ ___
 # Usage
 1. Build the program
 ```
-$ sh build.sh
+$ make
 ```
 2. Execute the created binary file
 ```
-./bin/cimin <options>
+./cimin <options>
 	-i	: a file path of the crashing input
 	-m 	: a string whose appearance in standard error\
 			determines whether the expected crash occurs or not
@@ -21,10 +21,11 @@ $ sh build.sh
 ```
 * Example:
 ```
-./bin/cimin -i ./target_programs/jsmn/testcases/crash.json -m "heap-buffer-overflow" -o ./output/reduced ./target_programs/jsmn/jsondump
+./cimin -i ./target_programs/balance/testcases/fail -m "Unbalanced" -o ./output/reduced ./target_programs/balance/balance
+./cimin -i ./target_programs/jsmn/testcases/crash.json -m "heap-buffer-overflow" -o ./output/reduced ./target_programs/jsmn/jsondump
 ```
+* Some target programs require building
 3. Check the results in the output path
 ```
 vi <output_filepath>
 ```
-
