@@ -8,8 +8,8 @@ program can print out shortest crashing input found so far.
 struct handler_args {
     int kill_pid;
     int length;
-    char* output_string;
-    char* output_filename;
+    char *output_string;
+    char *output_filename;
 } global_handler;
 
 void end_program() {
@@ -34,7 +34,7 @@ void end_program() {
 	return;
 }
 
-void write_file(char * output_filename) {
+void write_file(char *output_filename) {
 	char *write_string = global_handler.output_string;
     FILE *fp;
 
@@ -67,7 +67,7 @@ void handle_signal(int sig) {
 	exit(1);
 }
 
-char* program_exec(char* input, char* exec_file, char** target_options) {
+char* run_target_program(char *crashing_input, char *exe_file, char **target_options) {
 	// pipe file descriptor, 0 for reading, 1 for writing
 	int to_child_FD[2];
 	int to_parent_FD[2];
@@ -116,7 +116,7 @@ char* program_exec(char* input, char* exec_file, char** target_options) {
 		// child process executes binary file
 		// output of stderr will be redirected to to_parent_FD[1]
 		// - by the dup2(to_parent_FD[1], STDERR_FILENO)
-		if (execv(exec_file, target_options) == -1) {
+		if (execv(exe_file, target_options) == -1) {
 			fprintf(stderr, "child process failed..\n");
 			exit(1);
 		}
@@ -127,18 +127,17 @@ char* program_exec(char* input, char* exec_file, char** target_options) {
 	close(to_parent_FD[1]);	// close write
 
 	// write to pipe_to_child - stdin
-	write(to_child_FD[1], input, strlen(input));
+	write(to_child_FD[1], crashing_input, strlen(crashing_input));
 
 	// need to close write pipe - or else it constantly waits for input
 	close(to_child_FD[1]);
 
 	waitpid(child_pid, &status, 0);
 
-	char* buf = (char*) malloc(sizeof(char) * BUFSIZ);
+	char *buffer = (char*) malloc(sizeof(char) * BUFSIZ);
 	// recieve the output of child via stderr using unnamed pipe
-	int num_of_bytes = read(to_parent_FD[0], buf, BUFSIZ);
-	buf[num_of_bytes] = '\0';
-	// printf("%s\n", buf);
+	int num_of_bytes = read(to_parent_FD[0], buffer, BUFSIZ);
+	buffer[num_of_bytes] = '\0';
 
 	close(to_parent_FD[0]);
 
@@ -147,90 +146,86 @@ char* program_exec(char* input, char* exec_file, char** target_options) {
     timer.it_value.tv_usec = 0;
     setitimer(ITIMER_REAL, &timer, NULL);
 
-	return buf;
+	return buffer;
 }
 
-char* minimize_input(char* input, char* condition, char* exec_file, char** target_options) {
-	char* input_placeholder = (char*) malloc(sizeof(char) * strlen(input));
+char* minimize_crashing_input(char *input, char *condition, char *exe_file, char **target_options) {
+	char* crashing_input = (char *)malloc(sizeof(char) * strlen(input));
 
-	strncpy(input_placeholder, input, strlen(input));	// variable input, t
-	int input_length = strlen(input_placeholder);		// length of input, |t|
-	int sub_length = input_length - 1;					// length of substring of input, s = t - 1
+	strncpy(crashing_input, input, strlen(input));	// variable input, t
+	int input_length = strlen(crashing_input);		// length of input, |t|
+	int sub_input_length = input_length - 1;					// length of substring of input, s = t - 1
 
-	while (sub_length > 0) {
-		for (int i = 0; i <= input_length - sub_length; i++) {
-			char * head = (char*) malloc(sizeof(char) * (i + 1));
-			strncpy(head, input_placeholder, i);
+	while (sub_input_length > 0) {
+		for (int i = 0; i <= input_length - sub_input_length; i++) {
+			char * head = (char *)malloc(sizeof(char) * (i + 1));
+			strncpy(head, crashing_input, i);
 			head[i] = '\0';
 
-			char* tail = (char*) malloc(sizeof(char) * (input_length - i - sub_length + 1));
-			strncpy(tail, input_placeholder + i + sub_length, input_length - i - sub_length);
-			tail[input_length - i - sub_length] = '\0';
+			char* tail = (char*) malloc(sizeof(char) * (input_length - i - sub_input_length + 1));
+			strncpy(tail, crashing_input + i + sub_input_length, input_length - i - sub_input_length);
+			tail[input_length - i - sub_input_length] = '\0';
 
-			char* test_input = (char*) malloc(sizeof(char) * (i + input_length - i - sub_length + 1));
+			char* test_input = (char*) malloc(sizeof(char) * (i + input_length - i - sub_input_length + 1));
 			strcpy(test_input, head);
 			strcat(test_input, tail);
 
-			printf("head: %s, tail: %s, test_input: %s\n", head, tail, test_input);
+			char* output = run_target_program(test_input, exe_file, target_options);	// output = p(head + tail)
 
-			char* output = program_exec(test_input, exec_file, target_options);	// output = p(head + tail)
 			if (strstr(output, condition) != NULL) {	// condition satisfied
 				// save global data, for SIGINT
 				global_handler.length = strlen(test_input);
 				global_handler.output_string = test_input;
 
-				char* updated_input = minimize_input(test_input, condition, exec_file, target_options);	// minimize_input(head + tail)
-				free(input_placeholder);
-				input_placeholder = updated_input;
+				char* updated_input = minimize_crashing_input(test_input, condition, exe_file, target_options);	// minimize_crashing_input(head + tail)
 
-				free(test_input);
+				free(crashing_input);
 				free(head);
 				free(tail);
 				free(output);
-				return input_placeholder;
+				free(test_input);
+
+				return updated_input;
 			}
 
-			free(output);
-			free(test_input);
 			free(head);
 			free(tail);
+			free(test_input);
+			free(output);
 		}
 
-		for (int i = 0; i <= input_length - sub_length; i++) {
-			char* mid = (char*) malloc(sizeof(char) * (sub_length + 1));
-			strncpy(mid, input_placeholder + i, sub_length);//mid = tm[i..i+s-1]
-			mid[sub_length] = '\0';
-			printf("mid: %s\n", mid);
-			char* output = program_exec(mid, exec_file, target_options);	// output = p(mid)
+		for (int i = 0; i <= input_length - sub_input_length; i++) {
+			char* mid = (char*) malloc(sizeof(char) * (sub_input_length + 1));
+			strncpy(mid, crashing_input + i, sub_input_length);//mid = tm[i..i+s-1]
+			mid[sub_input_length] = '\0';
+            
+			char* output = run_target_program(mid, exe_file, target_options);	// output = p(mid)
+
 			if (strstr(output, condition) != NULL) {	// condition satisfied
 				// save global data, for SIGINT
 				global_handler.length = strlen(mid);
 				global_handler.output_string = mid;
 
-				char* updated_input = minimize_input(mid, condition, exec_file, target_options);	// minimize_input(mid)
-				free(input_placeholder);
-				input_placeholder = updated_input;
+				char* updated_input = minimize_crashing_input(mid, condition, exe_file, target_options);	// minimize_crashing_input(mid)
 
+				free(crashing_input);
 				free(mid);
 				free(output);
-				return input_placeholder;
+
+				return updated_input;
 			}
 
-			free(output);
 			free(mid);
+			free(output);
 		}
 
-		sub_length = sub_length - 1;
+		sub_input_length = sub_input_length - 1;
 	}
 
-	return input_placeholder;
+	return crashing_input;
 }
 
-char* delta_debug(char* input, char* condition, char* exec_file, char** target_options) {
-	return minimize_input(input, condition, exec_file, target_options);
-}
-
-char* file_data(char* filepath) {
+char* read_file_content(char *filepath) {
     FILE* fp;
     char* buffer = NULL;
     long file_length;
@@ -274,7 +269,7 @@ char* file_data(char* filepath) {
     return buffer;
 }
 
-void get_arguments(int argc, char* argv[], char** crash_file, char** error_string, char** reduced_file, char*** target_options) {
+void get_arguments(int argc, char *argv[], char **crashing_input_file, char **error_string, char **output_dir, char ***target_options) {
 	// flags of input options
 	// 0 : false, 1 : true
 	int iflag = 0;
@@ -282,16 +277,16 @@ void get_arguments(int argc, char* argv[], char** crash_file, char** error_strin
 	int oflag = 0;
 	int opt;
 	if (argc <= 7) {
-		fprintf(stderr, "Input options count..\n");
+		fprintf(stderr, "./cimin <options>\n");
 		exit(1);
 	}
 
 	while ((opt = getopt(7, argv, "i:m:o:")) != -1) {
 		switch (opt) {
 			case 'i':	// -i : input file path
-				*crash_file = (char*) malloc(sizeof(char) * (strlen(optarg) + 2));
+				*crashing_input_file = (char*) malloc(sizeof(char) * (strlen(optarg) + 2));
 				optarg[strlen(optarg)] = '\0';
-				strcpy(*crash_file, optarg);
+				strcpy(*crashing_input_file, optarg);
 
 				iflag = 1;
 				break;
@@ -303,11 +298,11 @@ void get_arguments(int argc, char* argv[], char** crash_file, char** error_strin
 				mflag = 1;
 				break;
 			case 'o' :	// -o : output file path
-				*reduced_file = (char*) malloc(sizeof(char) * (strlen(optarg) + 2));
+				*output_dir = (char*) malloc(sizeof(char) * (strlen(optarg) + 2));
 				optarg[strlen(optarg)] = '\0';
-				strcpy(*reduced_file, optarg);
+				strcpy(*output_dir, optarg);
 
-				global_handler.output_filename = *reduced_file;
+				global_handler.output_filename = *output_dir;
 
 				oflag = 1;
 				break;
@@ -315,19 +310,19 @@ void get_arguments(int argc, char* argv[], char** crash_file, char** error_strin
           		fprintf(stderr, "Unknown option character '\\x%x'.\n", optopt);
 				exit(1);
 			default:
-				fprintf(stderr, "Error option");
+				fprintf(stderr, "Error parsing options");
             	exit(1);
 		}
 	}
 
 	if (iflag == 0 | mflag == 0 | oflag == 0) {
-		fprintf(stderr, "Error: missing option..\n");
+		fprintf(stderr, "Error missing required options..\n");
 		exit(1);
 	}
 
 	// length of options following the target binary exec file
 	int length_of_target_arg = argc - optind;
-	*target_options = (char**) malloc(sizeof(char*) * (length_of_target_arg + 1));	// space for NULL
+	*target_options = (char**) malloc(sizeof(char*) * (length_of_target_arg + 1));
 
 	for (int i = 0; i < length_of_target_arg; i++) {
 		(*target_options)[i] = (char*) malloc(sizeof(char) * strlen(argv[optind + i]));
@@ -338,40 +333,38 @@ void get_arguments(int argc, char* argv[], char** crash_file, char** error_strin
 	return;
 }
 
-int main(int argc, char* argv[]) {
-	
+int main(int argc, char *argv[]) {
     // input
-	char* crash_file;
-	char* error_string;
-	char* reduced_file;
-	char** target_options;
+	char *crashing_input_file;
+	char *error_string;
+	char *output_dir;
+	char **target_options;
 	
 	//handle arguments
-	get_arguments(argc, argv, &crash_file, &error_string, &reduced_file, &target_options);
+	get_arguments(argc, argv, &crashing_input_file, &error_string, &output_dir, &target_options);
 
 	// main process
-	char * crash_data = file_data(crash_file);	// read contents from crash input filepath
+	char *crashing_input = read_file_content(crashing_input_file);	// read contents from crash input filepath
 
-	global_handler.output_string = crash_data;
-	global_handler.length = strlen(crash_data);
+	global_handler.output_string = crashing_input;
+	global_handler.length = strlen(crashing_input);
 
-	char * output_exec = delta_debug(crash_data, error_string, target_options[0], target_options);
+	char *output_exec = minimize_crashing_input(crashing_input, error_string, target_options[0], target_options);
 
 	global_handler.output_string = output_exec;
 	global_handler.length = strlen(output_exec);
 	write_file(global_handler.output_filename);
 
-	// free char*
-	free(crash_file);
+	free(crashing_input_file);
 	free(error_string);
-	free(reduced_file);
-	free(crash_data);
+	free(output_dir);
+	free(crashing_input);
 	free(output_exec);
 
-	// free char**
 	for (int i = 0; i < sizeof(target_options) / sizeof(char*); i++) {
 		free(target_options[i]);
 	}
+
 	free(target_options);
 
     return 0;
